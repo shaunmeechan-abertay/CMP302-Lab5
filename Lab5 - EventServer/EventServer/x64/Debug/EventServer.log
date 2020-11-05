@@ -1,13 +1,10 @@
 ﻿  EventServer.cpp
-C:\Users\shaun\Documents\CMP303\CMP302-Lab5\Lab5 - EventServer\EventServer\EventServer.cpp(117,13): warning C4477: 'printf' : format string '%d' requires an argument of type 'int', but variadic argument 1 has type 'SOCKET'
-C:\Users\shaun\Documents\CMP303\CMP302-Lab5\Lab5 - EventServer\EventServer\EventServer.cpp(117,13): message : consider using '%lld' in the format string
-C:\Users\shaun\Documents\CMP303\CMP302-Lab5\Lab5 - EventServer\EventServer\EventServer.cpp(117,13): message : consider using '%Id' in the format string
-C:\Users\shaun\Documents\CMP303\CMP302-Lab5\Lab5 - EventServer\EventServer\EventServer.cpp(117,13): message : consider using '%I64d' in the format string
-C:\Users\shaun\Documents\CMP303\CMP302-Lab5\Lab5 - EventServer\EventServer\EventServer.cpp(160,10): warning C4477: 'printf' : format string '%d' requires an argument of type 'int', but variadic argument 1 has type 'SOCKET'
-C:\Users\shaun\Documents\CMP303\CMP302-Lab5\Lab5 - EventServer\EventServer\EventServer.cpp(160,10): message : consider using '%lld' in the format string
-C:\Users\shaun\Documents\CMP303\CMP302-Lab5\Lab5 - EventServer\EventServer\EventServer.cpp(160,10): message : consider using '%Id' in the format string
-C:\Users\shaun\Documents\CMP303\CMP302-Lab5\Lab5 - EventServer\EventServer\EventServer.cpp(160,10): message : consider using '%I64d' in the format string
-  NetUtility.cpp
-  socketWithEvent.cpp
-  Generating Code...
+C:\Users\shaun\Documents\CMP303\CMP302-Lab5\Lab5 - EventServer\EventServer\EventServer.cpp(159,14): warning C4477: 'printf' : format string '%d' requires an argument of type 'int', but variadic argument 1 has type 'SOCKET'
+C:\Users\shaun\Documents\CMP303\CMP302-Lab5\Lab5 - EventServer\EventServer\EventServer.cpp(159,14): message : consider using '%lld' in the format string
+C:\Users\shaun\Documents\CMP303\CMP302-Lab5\Lab5 - EventServer\EventServer\EventServer.cpp(159,14): message : consider using '%Id' in the format string
+C:\Users\shaun\Documents\CMP303\CMP302-Lab5\Lab5 - EventServer\EventServer\EventServer.cpp(159,14): message : consider using '%I64d' in the format string
+C:\Users\shaun\Documents\CMP303\CMP302-Lab5\Lab5 - EventServer\EventServer\EventServer.cpp(231,10): warning C4477: 'printf' : format string '%d' requires an argument of type 'int', but variadic argument 1 has type 'SOCKET'
+C:\Users\shaun\Documents\CMP303\CMP302-Lab5\Lab5 - EventServer\EventServer\EventServer.cpp(231,10): message : consider using '%lld' in the format string
+C:\Users\shaun\Documents\CMP303\CMP302-Lab5\Lab5 - EventServer\EventServer\EventServer.cpp(231,10): message : consider using '%Id' in the format string
+C:\Users\shaun\Documents\CMP303\CMP302-Lab5\Lab5 - EventServer\EventServer\EventServer.cpp(231,10): message : consider using '%I64d' in the format string
   EventServer.vcxproj -> C:\Users\shaun\Documents\CMP303\CMP302-Lab5\Lab5 - EventServer\x64\Debug\EventServer.exe

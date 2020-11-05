@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <iostream>
+#include <list>
 
 #include "NetUtility.h"
 #include "socketWithEvent.h"
@@ -20,7 +21,6 @@
 // It would be nice to have a nicer system for this...
 socketWithEvent ListenSocket("Listen Socket");
 socketWithEvent AcceptSocket("Accept Socket");
-SOCKET newAccept;
 int eventCount = 2;
 int clientCount = 0;
 
@@ -79,78 +79,149 @@ int main()
 	//Create an event to use as a pointer for WSAWaitForMultipleEvents	
 	WSAEVENT ListenEvent = ListenSocket.getEvent();
 
+	// The list of clients currently connected to the server
+	std::list<socketWithEvent*> conns;
+
 	while (true) {
+		// The structure that describes the set of sockets we're interested in.
+		fd_set readable;
+		FD_ZERO(&readable);
+
+		// The structure of writable sockets
+		fd_set writable;
+		FD_ZERO(&writable);
+
+		// Add the server socket, which will become "readable" and "writable" if there's a new
+		// connection to accept.
+		FD_SET(ListenSocket.getSocket(), &readable);
+		FD_SET(ListenSocket.getSocket(), &writable);
+
+		// Add all of the connected clients' sockets.
+		for (auto conn : conns)
+		{
+			if (conn->wantRead())
+			{
+				FD_SET(conn->getSocket(), &readable);
+			}
+
+			if (conn->wantWrite())
+			{
+				FD_SET(conn->getSocket(), &writable);
+			}
+		}
+
 		//Check our events for activity. 
 		//Params: How many events, pointer to an array of events, should we wait on ALL events being ready?, how long should we wait?, ignore this one for now...
 		//At the moment we're using a timeout of 0 to 'poll' for activity, we could move this to a seperate thread and let it block there to make it more efficient!
 		//Here we check for events on the ListenEvent		
 		DWORD returnVal;
 
-		if (clientCount < 1) {
-			returnVal = WSAWaitForMultipleEvents(1, &ListenEvent, false, 0, false);
+		if (FD_ISSET(ListenSocket.getSocket(),&readable))
+		{
+			if (clientCount < 2) {
+				returnVal = WSAWaitForMultipleEvents(1, &ListenEvent, false, 0, false);
 
-			if ((returnVal != WSA_WAIT_TIMEOUT) && (returnVal != WSA_WAIT_FAILED)) {
-				eventIndex = returnVal - WSA_WAIT_EVENT_0; //In practice, eventIndex will equal returnVal, but this is here for compatability
+				if ((returnVal != WSA_WAIT_TIMEOUT) && (returnVal != WSA_WAIT_FAILED)) {
+					eventIndex = returnVal - WSA_WAIT_EVENT_0; //In practice, eventIndex will equal returnVal, but this is here for compatability
 
-				if (WSAEnumNetworkEvents(ListenSocket.getSocket(), ListenEvent, &NetworkEvents) == SOCKET_ERROR) {
-					die("Retrieving event information failed");
-				}
-				if (NetworkEvents.lNetworkEvents & FD_ACCEPT)
-				{
-					if (NetworkEvents.iErrorCode[FD_ACCEPT_BIT] != 0) {
-						printf("FD_ACCEPT failed with error %d\n", NetworkEvents.iErrorCode[FD_ACCEPT_BIT]);
-						break;
+					if (WSAEnumNetworkEvents(ListenSocket.getSocket(), ListenEvent, &NetworkEvents) == SOCKET_ERROR) {
+						die("Retrieving event information failed");
 					}
-					// Accept a new connection, and add it to the socket and event lists
-					AcceptSocket.setSocket(accept(ListenSocket.getSocket(), NULL, NULL));
-					AcceptEvent = WSACreateEvent;
-					AcceptSocket.setEvent(AcceptEvent);
-
-					if (AcceptSocket.getEvent() == WSA_INVALID_EVENT)
+					if (NetworkEvents.lNetworkEvents & FD_ACCEPT)
 					{
-						die("ERROR: Invalid event created!");
-					}
-					//TODO: It'd be great if we could wait for a Read or Write event too...
-					WSAEventSelect(newAccept, AcceptEvent, FD_CLOSE);
-					clientCount++;
+						if (NetworkEvents.iErrorCode[FD_ACCEPT_BIT] != 0) {
+							printf("FD_ACCEPT failed with error %d\n", NetworkEvents.iErrorCode[FD_ACCEPT_BIT]);
+							break;
+						}
+						// Accept a new connection, and add it to the socket and event lists
+						sockaddr_in clientAddr;
+						int addrSize = sizeof(clientAddr);
+						socketWithEvent clientSocket("Client Socket");
+						clientSocket.setSocket(accept(ListenSocket.getSocket(), (sockaddr*)&clientAddr, &addrSize));
+						if (clientSocket.getSocket() == INVALID_SOCKET)
+						{
+							printf("ERROR: Accept failed\n");
+							continue;
+						}
+						clientSocket.setEvent(WSACreateEvent());
+						//AcceptSocket.setSocket(accept(ListenSocket.getSocket(), NULL, NULL));
+						//AcceptSocket.setEvent(WSACreateEvent);
+						if (clientSocket.getEvent() == WSA_INVALID_EVENT)
+						{
+							die("ERROR: Invalid event created!");
+						}
+						//TODO: It'd be great if we could wait for a Read or Write event too...
+						WSAEventSelect(clientSocket.getSocket(), clientSocket.getEvent(), FD_CLOSE);
 
-					printf("Socket %d connected\n", AcceptSocket.getSocket());
+						conns.push_back(new socketWithEvent(clientSocket));
+						clientCount++;
+
+						printf("Socket %d connected\n", clientSocket.getSocket());
+					}
 				}
-			}
-			else if (returnVal == WSA_WAIT_TIMEOUT) {
-				//All good, we just have no activity
-			}
-			else if (returnVal == WSA_WAIT_FAILED) {
-				die("WSAWaitForMultipleEvents failed!");
+				else if (returnVal == WSA_WAIT_TIMEOUT) {
+					//All good, we just have no activity
+				}
+				else if (returnVal == WSA_WAIT_FAILED) {
+					die("WSAWaitForMultipleEvents failed!");
+				}
 			}
 		}
 		if (clientCount > 0) {
-			AcceptEvent = WSACreateEvent;
-			returnVal = WSAWaitForMultipleEvents(1, &AcceptEvent, false, 0, false);
-			if ((returnVal != WSA_WAIT_TIMEOUT) && (returnVal != WSA_WAIT_FAILED)) {
-				eventIndex = returnVal - WSA_WAIT_EVENT_0; //In practice, eventIndex will equal returnVal, but this is here for compatability
+			for (auto it = conns.begin(); it != conns.end();)
+			{
+				socketWithEvent* conn = *it;
+				AcceptEvent = conn->getEvent();
+				returnVal = WSAWaitForMultipleEvents(1, &AcceptEvent, false, 0, false);
+				if ((returnVal != WSA_WAIT_TIMEOUT) && (returnVal != WSA_WAIT_FAILED)) {
+					eventIndex = returnVal - WSA_WAIT_EVENT_0; //In practice, eventIndex will equal returnVal, but this is here for compatability
 
-				if (WSAEnumNetworkEvents(AcceptSocket.getSocket(), AcceptSocket.getEvent(), &NetworkEvents) == SOCKET_ERROR) {
-					die("Retrieving event information failed");
-				}
-				if (NetworkEvents.lNetworkEvents & FD_CLOSE)
-				{
-					//We ignore the error if the client just force quit
-					if (NetworkEvents.iErrorCode[FD_CLOSE_BIT] != 0 && NetworkEvents.iErrorCode[FD_CLOSE_BIT] != 10053)
-					{
-						printf("FD_CLOSE failed with error %d\n", NetworkEvents.iErrorCode[FD_CLOSE_BIT]);
-						break;
+					if (WSAEnumNetworkEvents(AcceptSocket.getSocket(), AcceptSocket.getEvent(), &NetworkEvents) == SOCKET_ERROR) {
+						die("Retrieving event information failed");
 					}
-					CleanupSocket();
+					if (NetworkEvents.lNetworkEvents & FD_CLOSE)
+					{
+						//We ignore the error if the client just force quit
+						if (NetworkEvents.iErrorCode[FD_CLOSE_BIT] != 0 && NetworkEvents.iErrorCode[FD_CLOSE_BIT] != 10053)
+						{
+							printf("FD_CLOSE failed with error %d\n", NetworkEvents.iErrorCode[FD_CLOSE_BIT]);
+							break;
+						}
+						CleanupSocket();
+					}
 				}
-			}
-			else if (returnVal == WSA_WAIT_TIMEOUT) {
-				//All good, we just have no activity
-			}
-			else if (returnVal == WSA_WAIT_FAILED) {
-				die("WSAWaitForMultipleEvents failed!");
+				else if (returnVal == WSA_WAIT_TIMEOUT) {
+					//All good, we just have no activity
+				}
+				else if (returnVal == WSA_WAIT_FAILED) {
+					die("WSAWaitForMultipleEvents failed!");
+				}
 			}
 		}
+
+		for (auto it = conns.begin(); it != conns.end();)
+		{
+			socketWithEvent* conn = *it;
+			bool dead = false;
+
+			//Is there data to read from this client's socket
+			if (FD_ISSET(conn->getSocket(),&readable))
+			{
+				dead |= conn->doRead();
+			}
+			if (dead)
+			{
+				// The client said it was dead -- so free the object,
+				// and remove it from the conns list.
+				delete conn;
+				it = conns.erase(it);
+			}
+			else
+			{
+				++it;
+			}
+		}
+
 	}
 }
 
